@@ -395,11 +395,7 @@ p.markdown-note {
 .login_leaderboard ol li a {
   font-weight: bold;
   display: inline-block;
-  width: 230px;
-}
-
-.login_leaderboard ol li span {
-
+  width: 250px;
 }
 
 

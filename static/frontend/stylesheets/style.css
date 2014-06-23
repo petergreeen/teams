@@ -788,6 +788,66 @@ display:inline;
 /* END PLEDGE PAGE STUFF */
 
 
+/* Video Embed markup */
 
+.videostream { 
 
+  background: #1b1b1b;
+  border-radius: 2px;
 
+}
+
+.videocontent {
+  width: 640px;
+  margin: auto;
+  padding: 30px 0;
+}
+
+.mpframe {
+  width: 640px;
+  height: 490px;
+  overflow: hidden;  
+}
+
+.mpframe iframe {
+  position: relative;
+  top:-55px;
+}
+
+.mp-controls a {
+  display: inline-block;
+  padding: 8px 13px;
+  color: #555;
+  margin: 5px 0 10px;
+  font: bold 18px arial, Helvetica;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.mp-controls a:hover {
+  background: rgba(255,255,255,0.05);
+  color: #777;
+  text-decoration: none;
+}
+
+.mp-controls .active {
+    border: solid 1px white;
+    color: white;
+}
+
+.mp-controls .active:hover {
+    background: transparent;
+    color: white;
+    cursor: default;
+}
+
+.people-count-div { 
+  float: right;
+  color: white;
+  margin-top: 16px;
+}
+.people-count-div svg {
+  height: 1em;
+  vertical-align: top;
+  margin-top: 0.25em;
+}
