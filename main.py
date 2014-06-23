@@ -238,7 +238,7 @@ class ThankYouForm(wtforms.Form):
   subject = wtforms.StringField("Message Subject", [
       wtforms.validators.Length(min=1, max=150)], default=DEFAULT_THANKYOU_SUBJECT)
   message_body = wtforms.TextAreaField("Message Body",
-      [wtforms.validators.Length(min=1, max=500)],
+      [wtforms.validators.Length(min=1, max=10000)],
       default=DEFAULT_THANKYOU_MESSAGE)
   new_members = wtforms.BooleanField("Send to new contributors only (have not \
     previsously received a thank you message)", [], default=True)
@@ -298,33 +298,38 @@ class IndexHandler(BaseHandler):
     return self.redirect("/login")
 
 
+def leaderboardGetter(offset, limit):
+  leaderboard = config_NOCOMMIT.pledge_service.getLeaderboard(
+      offset=offset, limit=limit)
+  teams = []
+  for idx, team_data in enumerate(leaderboard):
+    if team_data["total_cents"] == 0:
+        continue
+    team = Team.get(db.Key(team_data["team"]))
+    if team is None:
+      continue
+    teams.append({
+        "amount": int(team_data["total_cents"] / 100),
+        "title": team.title,
+        "primary_slug": team.primary_slug,
+        "position": 1 + offset + idx})
+  prev_link, next_link = None, None
+  if offset > 0:
+    prev_link = "?%s" % urllib.urlencode({
+        "offset": max(offset - limit, 0),
+        "limit": limit})
+  if len(teams) == limit:
+    next_link = "?%s" % urllib.urlencode({
+        "offset": offset + limit,
+        "limit": limit})
+  return teams, prev_link, next_link
+          
 class LeaderboardHandler(BaseHandler):
   def get(self):
     offset = int(self.request.get("offset") or 0)
     limit = int(self.request.get("limit") or 25)
-    leaderboard = config_NOCOMMIT.pledge_service.getLeaderboard(
-        offset=offset, limit=limit)
-    teams = []
-    for idx, team_data in enumerate(leaderboard):
-      if team_data["total_cents"] == 0:
-          continue
-      team = Team.get(db.Key(team_data["team"]))
-      if team is None:
-        continue
-      teams.append({
-          "amount": int(team_data["total_cents"] / 100),
-          "title": team.title,
-          "primary_slug": team.primary_slug,
-          "position": 1 + offset + idx})
-    prev_link, next_link = None, None
-    if offset > 0:
-      prev_link = "?%s" % urllib.urlencode({
-          "offset": max(offset - limit, 0),
-          "limit": limit})
-    if len(teams) == limit:
-      next_link = "?%s" % urllib.urlencode({
-          "offset": offset + limit,
-          "limit": limit})
+    
+    teams, prev_link, next_link = leaderboardGetter(offset, limit)
     self.render_template("leaderboard.html", teams=teams,
         prev_link=prev_link, next_link=next_link)
 
@@ -412,11 +417,16 @@ class ShareTeamHandler(TeamBaseHandler):
           "share_team.html", team=team, team_url=team_url)
 
 class LoginHandler(BaseHandler):
-  def get(self):
+  def get(self):    
     if self.logged_in:
       return self.redirect("/dashboard")
-    self.render_template("login.html")
-
+    
+    offset = int(self.request.get("offset") or 0)
+    limit = int(self.request.get("limit") or 5)
+    
+    teams, prev_link, next_link = leaderboardGetter(offset, limit)
+    self.render_template("login.html", teams=teams,
+        prev_link=prev_link, next_link=next_link) 
 
 class DashboardHandler(BaseHandler):
   @require_login
@@ -604,8 +614,15 @@ class ThankTeamHandler(TeamBaseHandler):
       method=urlfetch.POST,
       validate_certificate=False)
 
+
     if result.status_code == 200:
-      return self.render_template("thank_team_success.html", num_sent=result.content,
+      response_data = json.loads(result.content)
+      num_emailed = response_data["num_emailed"]
+      total_pledges = response_data["total_pledges"]
+
+      return self.render_template("thank_team_success.html",
+        num_emailed=num_emailed,
+        total_pledges=total_pledges,
         team_url="/t/%s" % team.primary_slug)
     else:
       return self.render_template("thank_team.html", form=form, error=result.content)
@@ -651,8 +668,8 @@ class SiteAdminTeams(AdminHandler):
 
 
 app = webapp2.WSGIApplication(config_NOCOMMIT.auth_service.handlers() + [
-  (r'/t/([^/]+)/?', TeamHandler),
-  (r'/t2/([^/]+)/?', TeamHandler2),
+  (r'/t2/([^/]+)/?', TeamHandler),
+  (r'/t/([^/]+)/?', TeamHandler2),
   (r'/t/([^/]+)/edit?', EditTeamHandler),
   (r'/t/([^/]+)/share?', ShareTeamHandler),
   (r'/t/([^/]+)/thank?', ThankTeamHandler),

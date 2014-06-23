@@ -56,7 +56,30 @@
         });
       };
       reload();
-      setInterval(reload, 15000);
+      // this genrates too many requests for not much reason
+      // setInterval(reload, 15000);
+      
+      var update_pledgers = function() {
+        $.getJSON("https://pledge.mayday.us/r/pledgers",
+                  {"team": "{{team.key()}}"})
+        .done(function(data) {
+          if (data["pledgers"].length == 0) {
+            $("#pledger-list").hide();
+            return;
+          }
+          $("#pledger-list").show();
+          var html = "";
+          $.each(data["pledgers"], function(_, name) {
+            html += "<li>" + $('<div/>').text(name).html() + "</li>";
+          });
+          $("#pledger-list ul").html(html);
+        });
+      };
+
+      $("#pledger-list").hide();
+      {% if edit_url %}
+        update_pledgers();
+      {% endif %}      
     });
   </script>
   <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular.min.js"></script>
@@ -64,7 +87,7 @@
   <script src="https://checkout.stripe.com/checkout.js"></script>
 {% endblock %}
 {% block body %}
-  <div class="pledgepage" ng-app="mayOne" ng-controller="PledgeController">
+  <div class="pledgepage" >
     <div class="container">
 
       <div class="row">
@@ -77,6 +100,7 @@
               {% if edit_url %}
                 <a href="{{edit_url}}">Edit this page</a> |
                 <a href="/dashboard/new">Create another page</a> |
+                <a href="{{thank_url}}">Thank your contributors</a> |                
               {% else %}
                 <a href="/dashboard/new">Create your own page</a> |
               {% endif %}
@@ -117,7 +141,7 @@
           <a href="{{pledge_root_url}}/pledge?team={{team.key()}}"
               class="pledge-link">
             <button class="btn">Pledge Now</button>
-          </a>
+          </a>                  
         </div>
 
         <div class="col-md-4" id="pledgecol-sidebar">
@@ -130,14 +154,14 @@
               </h3><!-- ./panel-title !-->
             </div><!-- ./panel-heading !-->
             <div class="panel-body">
-              <form role="form" method="POST" ng-submit="ctrl.pledge()">
-                <div class="form-group col-sm-12"><label class="control-label">Email</label><input type="email" required placeholder="smith@example.com" ng-model="ctrl.form.email" class="form-control input"></div>
-                <div class="form-group col-sm-12"><label class="control-label">Phone Number <span class="label label-default">Optional</span></label><input type="tel" placeholder="(212) 867-5309" ng-model="ctrl.form.phone" class="form-control input"></div>
-                <div class="form-group col-sm-12"><label class="control-label">Occupation</label><input type="text" required placeholder="Gardener, Railroad Worker, etc" ng-model="ctrl.form.occupation" class="form-control input"></div>
-                <div class="form-group col-sm-12"><label class="control-label">Employer</label><input type="text" required placeholder="Nintendo, UPS, Self, etc" ng-model="ctrl.form.employer" class="form-control input"></div>
+              <form role="form" method="POST" action="javascript:;">
+                <div class="form-group col-sm-12"><label class="control-label">Email</label><input id="email_input" type="email" required placeholder="smith@example.com"  class="form-control input"></div>
+                <div class="form-group col-sm-12"><label class="control-label">Phone Number <span class="label label-default">Optional</span></label><input id="phone_input" type="tel" placeholder="(212) 867-5309"  class="form-control input"></div>
+                <div class="form-group col-sm-12"><label class="control-label">Occupation</label><input id="occupation_input" type="text" required placeholder="Gardener, Railroad Worker, etc"  class="form-control input"></div>
+                <div class="form-group col-sm-12"><label class="control-label">Employer</label><input id="employer_input"  type="text" required placeholder="Nintendo, UPS, Self, etc"  class="form-control input"></div>
                 <div class="form-group col-sm-12">
                   <label class="control-label">Who to Fund?</label>
-                  <select ng-model="ctrl.form.target" class="form-control input">
+                  <select id="targeting_input" class="form-control input">
                     <option>Whatever Helps</option>
                     <option>Democrats Only</option>
                     <option>Republicans Only</option>
@@ -145,20 +169,34 @@
                 </div>
                 <div class="form-group col-sm-12">
                   <label class="control-label">How Much to Fund?</label>
-                  <div class="input-group"><span class="input-group-addon">$</span><input type="number" required min="1" ng-model="ctrl.form.amount" class="form-control"></div>
+                  <div class="input-group"><span class="input-group-addon">$</span><input id="amount_input" type="number" required min="1" class="form-control"></div>
                 </div>
                 <div id="donation-type" class="form-group col-sm-12">
-                  <div class="checkbox"><label><input type="checkbox" ng-model="ctrl.form.unconditional"> I want my donation to be used to support MAYDAY.US, even if the goal has not been met by July 4th.</label></div>
-                  <div class="checkbox"><label><input type="checkbox" ng-model="ctrl.form.subscribe"> Want to know how we're using the money? Sign up for emails from us.</label></div>
+                  <div class="checkbox"><label><input id="directDonate_input" type="checkbox" > I want my donation to be used to support MAYDAY.US, even if the goal has not been met by July 4th.</label></div>
+                  <div class="checkbox"><label><input id="emailSignupInput" type="checkbox" checked> Want to know how we're using the money? Sign up for emails from us.</label></div>
                 </div>
                 <div class="form-group col-sm-12">
-                  <button ng-disabled="ctrl.loading" class="btn">
-                    <div ng-show="ctrl.loading" class="spinner"></div>
-                    <span ng-hide="ctrl.loading">Pledge</span>
+                  <button class="btn" id='pledgeButton'>
+                    <div class="spinner" style='display:none'></div>
+                    <span class='pledgeText'>Pledge</span>
                   </button>
                 </div>
               </form>
             </div><!-- ./panel-body !-->
+            <div id="rules" class="well row">
+              <h2>Contribution Rules:</h2>
+              <p>In order to contribute, all of the following statements must be true:</p>
+              <ul>
+                <li>I am a United States citizen or a permanent resident alien.</li>
+                <li>This contribution is made from my own funds, and funds are not being provided to me by another person or entity for the purpose of making this contribution.</li>
+                <li>I am making this contribution with my own personal credit card and not with a corporate or business credit card or a card issued to another person.</li>
+                <li>I am at least eighteen years old.</li>
+                <li>I am not a foreign national, federal contractor, national bank, or corporation chartered by an act of Congress</li>
+              </ul>
+              <p>MayDay PAC must use its best efforts to obtain and report the name, address, occupation, and employer of individual contributors.</p>
+              <p>Contributions are not tax deductible.</p>
+              <p><a href="//mayday.us/privacy-policy">Our Privacy Policy</a></p>
+            </div>
           </div><!-- ./panel ./panel-default !-->
           
 
@@ -173,7 +211,13 @@
 
               <H6>PLEDGES</H6>
               <H5 class="pledges" id="team_total_pledges"></h5>
-
+                
+              <div id="pledger-list">
+                <h6>PEOPLE WHO PLEDGED TO YOUR PAGE:</h6>
+                <ul>
+                  <!-- filled in with js -->
+                </ul>
+              </div>
             </div>
           </div>
           
